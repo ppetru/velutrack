@@ -1,0 +1,14 @@
+{
+  "name": "hornet-doa-web",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npx http-server site -p 8000 --cors",
+    "deploy": "gh-pages -d site -b gh-pages -m \"Deploy $(date -u +'%Y-%m-%dT%H:%M:%SZ')\""
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "gh-pages": "^6.1.1",
+    "http-server": "^14.1.1"
+  }
+}

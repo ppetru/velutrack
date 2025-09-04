@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asian Hornet DoA Detector</title>
+    <style>
+        :root {
+            --bg: #1a1a1a;
+            --bg-panel: #2d2d2d;
+            --text: #f0f0f0;
+            --accent: #00ff00;
+            --error: #ff4444;
+            --warning: #ffaa00;
+            --info: #4499ff;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 16px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .panel {
+            background: var(--bg-panel);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        h1 {
+            text-align: center;
+            margin: 0 0 24px;
+            font-size: 24px;
+        }
+
+        .controls {
+            display: grid;
+            gap: 12px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            margin-bottom: 16px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        label {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        input, select, button {
+            padding: 12px;
+            border: 1px solid #555;
+            border-radius: 4px;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 16px;
+            min-height: 44px;
+        }
+
+        input:focus, select:focus, button:focus {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        button {
+            background: var(--accent);
+            color: #000;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+        }
+
+        button:hover {
+            opacity: 0.8;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 8px 0;
+        }
+
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            min-height: auto;
+        }
+
+        .visualization {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        #directionCanvas {
+            background: var(--bg-panel);
+            border: 1px solid #555;
+            border-radius: 8px;
+            max-width: 100%;
+        }
+
+        .meters {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin: 16px 0;
+        }
+
+        .meter {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .meter-bar {
+            width: 40px;
+            height: 100px;
+            background: #333;
+            border: 1px solid #555;
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .meter-fill {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            background: linear-gradient(to top, var(--accent), #ffaa00, #ff4444);
+            transition: height 0.1s ease;
+        }
+
+        .readouts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 16px;
+            margin: 16px 0;
+        }
+
+        .readout {
+            text-align: center;
+        }
+
+        .readout-label {
+            font-size: 12px;
+            opacity: 0.7;
+        }
+
+        .readout-value {
+            font-size: 18px;
+            font-weight: 600;
+            font-family: monospace;
+        }
+
+        .status {
+            padding: 12px;
+            border-radius: 4px;
+            margin: 8px 0;
+            font-size: 14px;
+        }
+
+        .status.info { background: rgba(68, 153, 255, 0.2); }
+        .status.ok { background: rgba(0, 255, 0, 0.2); }
+        .status.error { background: rgba(255, 68, 68, 0.2); }
+
+        .synthetic-controls {
+            display: none;
+            margin-top: 16px;
+        }
+
+        .synthetic-controls.visible {
+            display: block;
+        }
+
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            min-height: 44px;
+        }
+
+        @media (max-width: 600px) {
+            .controls {
+                grid-template-columns: 1fr;
+            }
+            
+            .readouts {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Asian Hornet DoA Detector</h1>
+        
+        <div class="panel">
+            <div class="controls">
+                <div class="control-group">
+                    <label for="deviceSelect">Audio Device</label>
+                    <select id="deviceSelect" aria-label="Select audio input device">
+                        <option>Loading devices...</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label for="micSpacing">Mic Spacing (m)</label>
+                    <input type="number" id="micSpacing" min="0.2" max="2.0" step="0.01" value="1.00" aria-label="Microphone spacing in meters">
+                </div>
+                
+                <div class="control-group">
+                    <label for="centerFreq">Center Freq (Hz)</label>
+                    <input type="number" id="centerFreq" min="50" max="500" step="1" value="125" aria-label="Band-pass filter center frequency">
+                </div>
+                
+                <div class="control-group">
+                    <label for="qFactor">Q Factor</label>
+                    <input type="number" id="qFactor" min="1" max="20" step="0.1" value="8" aria-label="Band-pass filter Q factor">
+                </div>
+            </div>
+            
+            <div class="controls">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="useHPF">
+                    <label for="useHPF">HPF @ 75Hz</label>
+                </div>
+                
+                <div class="checkbox-group">
+                    <input type="checkbox" id="useNotch50">
+                    <label for="useNotch50">Notch @ 50Hz</label>
+                </div>
+                
+                <div class="checkbox-group">
+                    <input type="checkbox" id="useNotch100">
+                    <label for="useNotch100">Notch @ 100Hz</label>
+                </div>
+                
+                <div class="checkbox-group">
+                    <input type="checkbox" id="swapLR">
+                    <label for="swapLR">Swap L/R</label>
+                </div>
+            </div>
+            
+            <div class="checkbox-group">
+                <input type="checkbox" id="syntheticMode">
+                <label for="syntheticMode">Synthetic Test Mode</label>
+            </div>
+            
+            <div id="syntheticControls" class="synthetic-controls">
+                <div class="control-group">
+                    <label for="synthFreq">Synthetic Frequency (Hz)</label>
+                    <input type="number" id="synthFreq" min="50" max="500" step="1" value="125">
+                </div>
+                
+                <div class="slider-group">
+                    <label for="synthDelay">Synthetic Delay: <span id="synthDelayValue">0.0</span> ms</label>
+                    <input type="range" id="synthDelay" min="-3" max="3" step="0.1" value="0">
+                </div>
+                
+                <div class="slider-group">
+                    <label for="synthSNR">SNR: <span id="synthSNRValue">20</span> dB</label>
+                    <input type="range" id="synthSNR" min="0" max="40" step="1" value="20">
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 12px; margin-top: 16px;">
+                <button id="startBtn" style="flex: 1;">Start</button>
+                <button id="stopBtn" style="flex: 1;" disabled>Stop</button>
+            </div>
+        </div>
+        
+        <div class="panel visualization">
+            <canvas id="directionCanvas" width="300" height="300" aria-label="Direction indicator"></canvas>
+            
+            <div class="readouts">
+                <div class="readout">
+                    <div class="readout-label">Angle</div>
+                    <div class="readout-value" id="angleValue">--°</div>
+                </div>
+                <div class="readout">
+                    <div class="readout-label">Delay</div>
+                    <div class="readout-value" id="delayValue">-- ms</div>
+                </div>
+                <div class="readout">
+                    <div class="readout-label">Confidence</div>
+                    <div class="readout-value" id="confidenceValue">--%</div>
+                </div>
+                <div class="readout">
+                    <div class="readout-label">Sample Rate</div>
+                    <div class="readout-value" id="sampleRateValue">-- kHz</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="panel">
+            <h3>Band Power Meters</h3>
+            <div class="meters">
+                <div class="meter">
+                    <div class="meter-bar">
+                        <div class="meter-fill" id="meter110"></div>
+                    </div>
+                    <label>110Hz</label>
+                </div>
+                <div class="meter">
+                    <div class="meter-bar">
+                        <div class="meter-fill" id="meter125"></div>
+                    </div>
+                    <label>125Hz</label>
+                </div>
+                <div class="meter">
+                    <div class="meter-bar">
+                        <div class="meter-fill" id="meter210"></div>
+                    </div>
+                    <label>210Hz</label>
+                </div>
+                <div class="meter">
+                    <div class="meter-bar">
+                        <div class="meter-fill" id="meter250"></div>
+                    </div>
+                    <label>250Hz</label>
+                </div>
+            </div>
+        </div>
+        
+        <div class="panel">
+            <h3>Status</h3>
+            <div id="statusPanel">
+                <div class="status info">Ready to start</div>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module" src="app.js"></script>
+</body>
+</html>
